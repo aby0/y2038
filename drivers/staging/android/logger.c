@@ -27,6 +27,7 @@
 #include <linux/poll.h>
 #include <linux/slab.h>
 #include <linux/time.h>
+#include <linux/ktime.h>
 #include <linux/vmalloc.h>
 #include <linux/aio.h>
 #include "logger.h"
@@ -115,25 +116,25 @@ static inline struct logger_log *file_get_log(struct file *file)
 }
 
 /*
- * get_entry_header - returns a pointer to the logger_entry header within
- * 'log' starting at offset 'off'. A temporary logger_entry 'scratch' must
+ * get_entry_header - returns a pointer to the logger_entry_v3 header within
+ * 'log' starting at offset 'off'. A temporary logger_entry_v3 'scratch' must
  * be provided. Typically the return value will be a pointer within
  * 'logger->buf'.  However, a pointer to 'scratch' may be returned if
  * the log entry spans the end and beginning of the circular buffer.
  */
-static struct logger_entry *get_entry_header(struct logger_log *log,
-		size_t off, struct logger_entry *scratch)
+static struct logger_entry_v3 *get_entry_header(struct logger_log *log,
+		size_t off, struct logger_entry_v3 *scratch)
 {
-	size_t len = min(sizeof(struct logger_entry), log->size - off);
+	size_t len = min(sizeof(struct logger_entry_v3), log->size - off);
 
-	if (len != sizeof(struct logger_entry)) {
+	if (len != sizeof(struct logger_entry_v3)) {
 		memcpy(((void *) scratch), log->buffer + off, len);
 		memcpy(((void *) scratch) + len, log->buffer,
-			sizeof(struct logger_entry) - len);
+			sizeof(struct logger_entry_v3) - len);
 		return scratch;
 	}
 
-	return (struct logger_entry *) (log->buffer + off);
+	return (struct logger_entry_v3 *) (log->buffer + off);
 }
 
 /*
@@ -148,8 +149,8 @@ static struct logger_entry *get_entry_header(struct logger_log *log,
  */
 static __u32 get_entry_msg_len(struct logger_log *log, size_t off)
 {
-	struct logger_entry scratch;
-	struct logger_entry *entry;
+	struct logger_entry_v3 scratch;
+	struct logger_entry_v3 *entry;
 
 	entry = get_entry_header(log, off, &scratch);
 	return entry->len;
@@ -159,15 +160,18 @@ static size_t get_user_hdr_len(int ver)
 {
 	if (ver < 2)
 		return sizeof(struct user_logger_entry_compat);
-	return sizeof(struct logger_entry);
+	if (ver < 3)
+		return sizeof(struct logger_entry);
+	return sizeof(struct logger_entry_v3);
 }
 
-static ssize_t copy_header_to_user(int ver, struct logger_entry *entry,
+static ssize_t copy_header_to_user(int ver, struct logger_entry_v3 *entry,
 					 char __user *buf)
 {
 	void *hdr;
 	size_t hdr_len;
 	struct user_logger_entry_compat v1;
+	struct logger_entry v2;
 
 	if (ver < 2) {
 		v1.len      = entry->len;
@@ -178,9 +182,20 @@ static ssize_t copy_header_to_user(int ver, struct logger_entry *entry,
 		v1.nsec     = entry->nsec;
 		hdr         = &v1;
 		hdr_len     = sizeof(struct user_logger_entry_compat);
+	} else if (ver < 3) {
+		v2.len      = entry->len;
+		v2.hdr_size = entry->hdr_size;
+		v2.pid      = entry->pid;
+		v2.tid      = entry->tid;
+		v2.sec      = entry->sec;
+		v2.nsec     = entry->nsec;
+		v2.euid     = entry->euid;
+		hdr         = &v2;
+		hdr_len     = sizeof(struct logger_entry);
+
 	} else {
 		hdr         = entry;
-		hdr_len     = sizeof(struct logger_entry);
+		hdr_len     = sizeof(struct logger_entry_v3);
 	}
 
 	return copy_to_user(buf, hdr, hdr_len);
@@ -197,8 +212,8 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 				   char __user *buf,
 				   size_t count)
 {
-	struct logger_entry scratch;
-	struct logger_entry *entry;
+	struct logger_entry_v3 scratch;
+	struct logger_entry_v3 *entry;
 	size_t len;
 	size_t msg_start;
 
@@ -213,7 +228,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 	count -= get_user_hdr_len(reader->r_ver);
 	buf += get_user_hdr_len(reader->r_ver);
 	msg_start = logger_offset(log,
-		reader->r_off + sizeof(struct logger_entry));
+		reader->r_off + sizeof(struct logger_entry_v3));
 
 	/*
 	 * We read from the msg in two disjoint operations. First, we read from
@@ -233,7 +248,7 @@ static ssize_t do_read_log_to_user(struct logger_log *log,
 			return -EFAULT;
 
 	reader->r_off = logger_offset(log, reader->r_off +
-		sizeof(struct logger_entry) + count);
+		sizeof(struct logger_entry_v3) + count);
 
 	return count + get_user_hdr_len(reader->r_ver);
 }
@@ -246,8 +261,8 @@ static size_t get_next_entry_by_uid(struct logger_log *log,
 		size_t off, kuid_t euid)
 {
 	while (off != log->w_off) {
-		struct logger_entry *entry;
-		struct logger_entry scratch;
+		struct logger_entry_v3 *entry;
+		struct logger_entry_v3 scratch;
 		size_t next_len;
 
 		entry = get_entry_header(log, off, &scratch);
@@ -255,7 +270,7 @@ static size_t get_next_entry_by_uid(struct logger_log *log,
 		if (uid_eq(entry->euid, euid))
 			return off;
 
-		next_len = sizeof(struct logger_entry) + entry->len;
+		next_len = sizeof(struct logger_entry_v3) + entry->len;
 		off = logger_offset(log, off + next_len);
 	}
 
@@ -350,7 +365,7 @@ static size_t get_next_entry(struct logger_log *log, size_t off, size_t len)
 	size_t count = 0;
 
 	do {
-		size_t nr = sizeof(struct logger_entry) +
+		size_t nr = sizeof(struct logger_entry_v3) +
 			get_entry_msg_len(log, off);
 		off = logger_offset(log, off + nr);
 		count += nr;
@@ -471,11 +486,11 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 {
 	struct logger_log *log = file_get_log(iocb->ki_filp);
 	size_t orig;
-	struct logger_entry header;
-	struct timespec now;
+	struct logger_entry_v3 header;
+	struct timespec64 now;
 	ssize_t ret = 0;
 
-	now = current_kernel_time();
+	ktime_get_real_ts64(&now);
 
 	header.pid = current->tgid;
 	header.tid = current->pid;
@@ -483,7 +498,7 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	header.nsec = now.tv_nsec;
 	header.euid = current_euid();
 	header.len = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD);
-	header.hdr_size = sizeof(struct logger_entry);
+	header.hdr_size = sizeof(struct logger_entry_v3);
 
 	/* null writes succeed, return zero */
 	if (unlikely(!header.len))
@@ -499,9 +514,9 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	 * because if we partially fail, we can end up with clobbered log
 	 * entries that encroach on readable buffer.
 	 */
-	fix_up_readers(log, sizeof(struct logger_entry) + header.len);
+	fix_up_readers(log, sizeof(struct logger_entry_v3) + header.len);
 
-	do_write_log(log, &header, sizeof(struct logger_entry));
+	do_write_log(log, &header, sizeof(struct logger_entry_v3));
 
 	while (nr_segs-- > 0) {
 		size_t len;
@@ -647,7 +662,7 @@ static long logger_set_version(struct logger_reader *reader, void __user *arg)
 	if (copy_from_user(&version, arg, sizeof(int)))
 		return -EFAULT;
 
-	if ((version < 1) || (version > 2))
+	if ((version < 1) || (version > 3))
 		return -EINVAL;
 
 	reader->r_ver = version;

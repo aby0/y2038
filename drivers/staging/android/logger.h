@@ -69,6 +69,31 @@ struct logger_entry {
 	kuid_t		euid;
 	char		msg[0];
 };
+/**
+ * struct logger_entry_v3 - defines a single entry that is given to a logger
+ * @len:	The length of the payload
+ * @hdr_size:	sizeof(struct logger_entry_v3)
+ * @pid:	The generating process' process ID
+ * @tid:	The generating process' thread ID
+ * @euid:	Effective UID of logger
+ * @sec:	The number of seconds that have elapsed since the Epoch
+ * @nsec:	The number of nanoseconds
+ * @msg:	The message that is to be logged
+ * The structure for version 3 of the logger_entry ABI.
+ * This structure is returned to userspace if ioctl(LOGGER_SET_VERSION)
+ * is called with version = 3
+ */
+struct logger_entry_v3 {
+	__u16		len;
+	__u16		hdr_size;
+	__s32		pid;
+	__s32		tid;
+	kuid_t		euid;
+	__s64		sec;
+	__s32		nsec;
+	char		msg[0];
+};
+
 
 #define LOGGER_LOG_RADIO	"log_radio"	/* radio-related messages */
 #define LOGGER_LOG_EVENTS	"log_events"	/* system/hardware events */
