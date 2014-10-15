@@ -104,7 +104,7 @@ static size_t logger_offset(struct logger_log *log, size_t n)
  * file->logger_log. Thus what file->private_data points at depends on whether
  * or not the file was opened for reading. This function hides that dirtiness.
  */
-static inline struct logger_log *file_get_log(struct file *file)
+static inline struct logger_log *file_get_log(struct file *file)   //can be thought of uapi communication
 {
 	if (file->f_mode & FMODE_READ) {
 		struct logger_reader *reader = file->private_data;
@@ -472,15 +472,15 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct logger_log *log = file_get_log(iocb->ki_filp);
 	size_t orig;
 	struct logger_entry header;
-	struct timespec now;
+	ktime_t now;
 	ssize_t ret = 0;
 
-	now = current_kernel_time();
+	now = ktime_get();
 
 	header.pid = current->tgid;
 	header.tid = current->pid;
-	header.sec = now.tv_sec;
-	header.nsec = now.tv_nsec;
+	header.sec = do_div(ktime_to_ns(now),NSEC_PER_SEC);
+	header.nsec = ktime_to_ns(now);
 	header.euid = current_euid();
 	header.len = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD);
 	header.hdr_size = sizeof(struct logger_entry);
