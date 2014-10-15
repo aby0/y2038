@@ -45,7 +45,7 @@ struct user_logger_entry_compat {
 };
 
 /**
- * struct logger_entry - defines a single entry that is given to a logger
+ * struct logger_entry_compat - defines a single entry that is given to a logger
  * @len:	The length of the payload
  * @hdr_size:	sizeof(struct logger_entry_v2)
  * @pid:	The generating process' process ID
@@ -57,15 +57,41 @@ struct user_logger_entry_compat {
  *
  * The structure for version 2 of the logger_entry ABI.
  * This structure is returned to userspace if ioctl(LOGGER_SET_VERSION)
- * is called with version >= 2
+ * is called with version = 2
  */
-struct logger_entry {
+struct logger_entry_compat {
 	__u16		len;
 	__u16		hdr_size;
 	__s32		pid;
 	__s32		tid;
 	__s32		sec;
 	__s32		nsec;
+	kuid_t		euid;
+	char		msg[0];
+};
+/**
+ * struct logger_entry - defines a single entry that is given to a logger
+ * @len:	The length of the payload
+ * @hdr_size:	sizeof(struct logger_entry_v2)
+ * @pid:	The generating process' process ID
+ * @tid:	The generating process' thread ID
+ * @sec:	The number of seconds that have elapsed since the Epoch
+ * @nsec:	The number of nanoseconds that have elapsed since @sec
+ * @euid:	Effective UID of logger
+ * @msg:	The message that is to be logged
+ *
+ * The structure for version 3 of the logger_entry ABI.
+ * This structure is returned to userspace if ioctl(LOGGER_SET_VERSION)
+ * is called with version >= 3
+ */
+
+struct logger_entry {
+	__u16		len;
+	__u16		hdr_size;
+	__s32		pid;
+	__s32		tid;
+	__s64		sec;
+	__s64		nsec;
 	kuid_t		euid;
 	char		msg[0];
 };

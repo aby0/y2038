@@ -29,6 +29,7 @@
 #include <linux/time.h>
 #include <linux/vmalloc.h>
 #include <linux/aio.h>
+#include <linux/ktime.h>
 #include "logger.h"
 
 #include <asm/ioctls.h>
@@ -159,6 +160,9 @@ static size_t get_user_hdr_len(int ver)
 {
 	if (ver < 2)
 		return sizeof(struct user_logger_entry_compat);
+	if (ver < 3)
+		return sizeof(struct logger_entry_compat);
+
 	return sizeof(struct logger_entry);
 }
 
@@ -168,6 +172,7 @@ static ssize_t copy_header_to_user(int ver, struct logger_entry *entry,
 	void *hdr;
 	size_t hdr_len;
 	struct user_logger_entry_compat v1;
+	struct logger_entry_compat v2;
 
 	if (ver < 2) {
 		v1.len      = entry->len;
@@ -178,6 +183,15 @@ static ssize_t copy_header_to_user(int ver, struct logger_entry *entry,
 		v1.nsec     = entry->nsec;
 		hdr         = &v1;
 		hdr_len     = sizeof(struct user_logger_entry_compat);
+	} else if (ver < 3) {
+		v2.len      = entry->len;
+		v2.hdr_size = entry->hdr_size;
+		v2.pid      = entry->pid;
+		v2.tid      = entry->tid;
+		v2.sec      = (s32)entry->sec;
+		v2.nsec     = (s32)entry->nsec;
+		hdr         = &v2;
+		hdr_len     = sizeof(struct logger_entry_compat);
 	} else {
 		hdr         = entry;
 		hdr_len     = sizeof(struct logger_entry);
@@ -472,15 +486,15 @@ static ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct logger_log *log = file_get_log(iocb->ki_filp);
 	size_t orig;
 	struct logger_entry header;
-	struct timespec now;
+	ktime_t now;
 	ssize_t ret = 0;
 
-	now = current_kernel_time();
+	now = ktime_get();
 
 	header.pid = current->tgid;
 	header.tid = current->pid;
-	header.sec = now.tv_sec;
-	header.nsec = now.tv_nsec;
+	header.sec = do_div(ktime_to_ns(now), NSEC_PER_SEC);
+	header.nsec = ktime_to_ns(now);
 	header.euid = current_euid();
 	header.len = min_t(size_t, iocb->ki_nbytes, LOGGER_ENTRY_MAX_PAYLOAD);
 	header.hdr_size = sizeof(struct logger_entry);
@@ -647,7 +661,7 @@ static long logger_set_version(struct logger_reader *reader, void __user *arg)
 	if (copy_from_user(&version, arg, sizeof(int)))
 		return -EFAULT;
 
-	if ((version < 1) || (version > 2))
+	if ((version < 1) || (version > 3))
 		return -EINVAL;
 
 	reader->r_ver = version;
