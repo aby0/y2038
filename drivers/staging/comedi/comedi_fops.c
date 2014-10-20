@@ -1097,16 +1097,16 @@ static int parse_insn(struct comedi_device *dev, struct comedi_insn *insn,
 		switch (insn->insn) {
 		case INSN_GTOD:
 			{
-				struct timeval tv;
+				ktime_t kt;
 
 				if (insn->n != 2) {
 					ret = -EINVAL;
 					break;
 				}
 
-				do_gettimeofday(&tv);
-				data[0] = tv.tv_sec;
-				data[1] = tv.tv_usec;
+				kt = ktime_get();
+				data[0] = ktime_divns(kt, NSEC_PER_SEC);
+				data[1] = ktime_to_us(kt);
 				ret = 2;
 
 				break;
