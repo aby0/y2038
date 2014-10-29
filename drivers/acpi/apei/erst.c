@@ -991,7 +991,7 @@ static int erst_close_pstore(struct pstore_info *psi)
 }
 
 static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
-			   struct timespec *time, char **buf,
+			   struct timespec *ts, char **buf,
 			   bool *compressed, struct pstore_info *psi)
 {
 	int rc;
@@ -999,6 +999,8 @@ static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
 	u64 record_id;
 	struct cper_pstore_record *rcd;
 	size_t rcd_len = sizeof(*rcd) + erst_info.bufsize;
+	struct timespec64 ts64 = timespec_to_timespec64(*ts);
+	struct timespec64 *time = &ts64;
 
 	if (erst_disable)
 		return -ENODEV;
