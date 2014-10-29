@@ -475,7 +475,7 @@ void pstore_get_records(int quiet)
 	u64			id;
 	int			count;
 	enum pstore_type_id	type;
-	struct timespec		time;
+	struct timespec64		time;
 	int			failed = 0, rc;
 	bool			compressed;
 	int			unzipped_len = -1;

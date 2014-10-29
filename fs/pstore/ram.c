@@ -135,7 +135,7 @@ ramoops_get_next_prz(struct persistent_ram_zone *przs[], uint *c, uint max,
 	return prz;
 }
 
-static void ramoops_read_kmsg_hdr(char *buffer, struct timespec *time,
+static void ramoops_read_kmsg_hdr(char *buffer, struct timespec64 *time,
 				  bool *compressed)
 {
 	char data_type;
@@ -198,11 +198,11 @@ static size_t ramoops_write_kmsg_hdr(struct persistent_ram_zone *prz,
 				     bool compressed)
 {
 	char *hdr;
-	struct timespec timestamp;
+	struct timespec64 timestamp;
 	size_t len;
-
+	getnstimeofday64(&timestamp);
 	/* Report zeroed timestamp if called before timekeeping has resumed. */
-	if (__getnstimeofday(&timestamp)) {
+	if (timestamp.tv_sec) {
 		timestamp.tv_sec = 0;
 		timestamp.tv_nsec = 0;
 	}
