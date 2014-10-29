@@ -32,7 +32,7 @@ struct pstore_read_data {
 	u64 *id;
 	enum pstore_type_id *type;
 	int *count;
-	struct timespec *timespec;
+	struct timespec64 *ts64;
 	bool *compressed;
 	char **buf;
 };
@@ -63,8 +63,8 @@ static int efi_pstore_read_func(struct efivar_entry *entry, void *data)
 		   cb_data->type, &part, &cnt, &time, &data_type) == 5) {
 		*cb_data->id = generic_id(time, part, cnt);
 		*cb_data->count = cnt;
-		cb_data->timespec->tv_sec = time;
-		cb_data->timespec->tv_nsec = 0;
+		cb_data->ts64->tv_sec = time;
+		cb_data->ts64->tv_nsec = 0;
 		if (data_type == 'C')
 			*cb_data->compressed = true;
 		else
@@ -73,8 +73,8 @@ static int efi_pstore_read_func(struct efivar_entry *entry, void *data)
 		   cb_data->type, &part, &cnt, &time) == 4) {
 		*cb_data->id = generic_id(time, part, cnt);
 		*cb_data->count = cnt;
-		cb_data->timespec->tv_sec = time;
-		cb_data->timespec->tv_nsec = 0;
+		cb_data->ts64->tv_sec = time;
+		cb_data->ts64->tv_nsec = 0;
 		*cb_data->compressed = false;
 	} else if (sscanf(name, "dump-type%u-%u-%lu",
 			  cb_data->type, &part, &time) == 3) {
@@ -85,8 +85,8 @@ static int efi_pstore_read_func(struct efivar_entry *entry, void *data)
 		 */
 		*cb_data->id = generic_id(time, part, 0);
 		*cb_data->count = 0;
-		cb_data->timespec->tv_sec = time;
-		cb_data->timespec->tv_nsec = 0;
+		cb_data->ts64->tv_sec = time;
+		cb_data->ts64->tv_nsec = 0;
 		*cb_data->compressed = false;
 	} else
 		return 0;
@@ -214,11 +214,11 @@ static ssize_t efi_pstore_read(u64 *id, enum pstore_type_id *type,
 {
 	struct pstore_read_data data;
 	ssize_t size;
-
+	struct timespec64 *ts64 = timespec;
 	data.id = id;
 	data.type = type;
 	data.count = count;
-	data.timespec = timespec;
+	data.ts64 = ts64;
 	data.compressed = compressed;
 	data.buf = buf;
 
@@ -266,7 +266,7 @@ struct pstore_erase_data {
 	u64 id;
 	enum pstore_type_id type;
 	int count;
-	struct timespec time;
+	struct timespec64 ts64;
 	efi_char16_t *name;
 };
 
@@ -293,7 +293,7 @@ static int efi_pstore_erase_func(struct efivar_entry *entry, void *data)
 		 * holding multiple logs, remains.
 		 */
 		sprintf(name_old, "dump-type%u-%u-%lu", ed->type,
-			(unsigned int)ed->id, ed->time.tv_sec);
+			(unsigned int)ed->id, ed->ts64.tv_sec);
 
 		for (i = 0; i < DUMP_NAME_LEN; i++)
 			efi_name_old[i] = name_old[i];
@@ -321,6 +321,7 @@ static int efi_pstore_erase_func(struct efivar_entry *entry, void *data)
 static int efi_pstore_erase(enum pstore_type_id type, u64 id, int count,
 			    struct timespec time, struct pstore_info *psi)
 {
+	struct timespec64 ts64 = time;
 	struct pstore_erase_data edata;
 	struct efivar_entry *entry = NULL;
 	char name[DUMP_NAME_LEN];
@@ -338,7 +339,7 @@ static int efi_pstore_erase(enum pstore_type_id type, u64 id, int count,
 	edata.id = part;
 	edata.type = type;
 	edata.count = count;
-	edata.time = time;
+	edata.ts64 = ts64;
 	edata.name = efi_name;
 
 	efivar_entry_iter_begin();
