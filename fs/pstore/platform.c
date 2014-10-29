@@ -469,7 +469,7 @@ EXPORT_SYMBOL_GPL(pstore_register);
  */
 void pstore_get_records(int quiet)
 {
-	struct pstore_info *psi = psinfo;
+	struct pstore_info	*psi = psinfo;
 	char			*buf = NULL;
 	ssize_t			size;
 	u64			id;
@@ -507,7 +507,8 @@ void pstore_get_records(int quiet)
 			}
 		}
 		rc = pstore_mkfile(type, psi->name, id, count, buf,
-				  compressed, (size_t)size, time, psi);
+				  compressed, (size_t)size,
+				  timespec_to_timespec64(time), psi);
 		if (unzipped_len < 0) {
 			/* Free buffer other than big oops */
 			kfree(buf);
