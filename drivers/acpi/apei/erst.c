@@ -999,6 +999,7 @@ static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
 	u64 record_id;
 	struct cper_pstore_record *rcd;
 	size_t rcd_len = sizeof(*rcd) + erst_info.bufsize;
+	struct timespec64 *ts64 = time;
 
 	if (erst_disable)
 		return -ENODEV;
@@ -1052,10 +1053,10 @@ skip:
 		*type = PSTORE_TYPE_UNKNOWN;
 
 	if (rcd->hdr.validation_bits & CPER_VALID_TIMESTAMP)
-		time->tv_sec = rcd->hdr.timestamp;
+		ts64->tv_sec = rcd->hdr.timestamp;
 	else
-		time->tv_sec = 0;
-	time->tv_nsec = 0;
+		ts64->tv_sec = 0;
+	ts64->tv_nsec = 0;
 
 out:
 	kfree(rcd);
