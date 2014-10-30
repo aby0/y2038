@@ -607,6 +607,7 @@ static ssize_t nvram_pstore_read(u64 *id, enum pstore_type_id *type,
 	char *buff = NULL;
 	int sig = 0;
 	loff_t p;
+	struct timepec64 *ts64 = time;
 
 	read_type++;
 
@@ -618,24 +619,24 @@ static ssize_t nvram_pstore_read(u64 *id, enum pstore_type_id *type,
 	case PSTORE_TYPE_PPC_RTAS:
 		part = &rtas_log_partition;
 		*type = PSTORE_TYPE_PPC_RTAS;
-		time->tv_sec = last_rtas_event;
-		time->tv_nsec = 0;
+		ts64->tv_sec = last_rtas_event;
+		ts64->tv_nsec = 0;
 		break;
 	case PSTORE_TYPE_PPC_OF:
 		sig = NVRAM_SIG_OF;
 		part = &of_config_partition;
 		*type = PSTORE_TYPE_PPC_OF;
 		*id = PSTORE_TYPE_PPC_OF;
-		time->tv_sec = 0;
-		time->tv_nsec = 0;
+		ts64->tv_sec = 0;
+		ts64->tv_nsec = 0;
 		break;
 	case PSTORE_TYPE_PPC_COMMON:
 		sig = NVRAM_SIG_SYS;
 		part = &common_partition;
 		*type = PSTORE_TYPE_PPC_COMMON;
 		*id = PSTORE_TYPE_PPC_COMMON;
-		time->tv_sec = 0;
-		time->tv_nsec = 0;
+		ts64->tv_sec = 0;
+		ts64->tv_nsec = 0;
 		break;
 	default:
 		return 0;
