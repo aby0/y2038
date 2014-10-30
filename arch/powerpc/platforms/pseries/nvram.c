@@ -598,16 +598,17 @@ static int nvram_pstore_write(enum pstore_type_id type,
  * Returns 0 if we've been called before.
  */
 static ssize_t nvram_pstore_read(u64 *id, enum pstore_type_id *type,
-				int *count, struct timespec *time, char **buf,
+				int *count, struct timespec *ts, char **buf,
 				bool *compressed, struct pstore_info *psi)
 {
+	struct timespec64 ts64 = timespec_to_timespec64(ts);
+	struct timespec64 *time = &ts64;
 	struct oops_log_info *oops_hdr;
 	unsigned int err_type, id_no, size = 0;
 	struct nvram_os_partition *part = NULL;
 	char *buff = NULL;
 	int sig = 0;
 	loff_t p;
-
 	read_type++;
 
 	switch (nvram_type_ids[read_type]) {
@@ -635,7 +636,7 @@ static ssize_t nvram_pstore_read(u64 *id, enum pstore_type_id *type,
 		*type = PSTORE_TYPE_PPC_COMMON;
 		*id = PSTORE_TYPE_PPC_COMMON;
 		time->tv_sec = 0;
-		time->tv_nsec = 0;
+		times->tv_nsec = 0;
 		break;
 	default:
 		return 0;
