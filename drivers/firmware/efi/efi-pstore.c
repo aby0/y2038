@@ -208,17 +208,16 @@ static int efi_pstore_sysfs_entry_iter(void *data, struct efivar_entry **pos)
  *           and pstore will stop reading entry.
  */
 static ssize_t efi_pstore_read(u64 *id, enum pstore_type_id *type,
-			       int *count, struct timespec *ts,
+			       int *count, struct timespec64 *time,
 			       char **buf, bool *compressed,
 			       struct pstore_info *psi)
 {
-	struct timespec64 time = timespec_to_timespec64(*ts);
 	struct pstore_read_data data;
 	ssize_t size;
 	data.id = id;
 	data.type = type;
 	data.count = count;
-	data.ts64 = &time;
+	data.ts64 = time;
 	data.compressed = compressed;
 	data.buf = buf;
 
@@ -319,9 +318,8 @@ static int efi_pstore_erase_func(struct efivar_entry *entry, void *data)
 }
 
 static int efi_pstore_erase(enum pstore_type_id type, u64 id, int count,
-			    struct timespec ts, struct pstore_info *psi)
+			    struct timespec64 time, struct pstore_info *psi)
 {
-	struct timespec64 time = timespec_to_timespec64(ts);
 	struct pstore_erase_data edata;
 	struct efivar_entry *entry = NULL;
 	char name[DUMP_NAME_LEN];
