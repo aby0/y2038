@@ -157,12 +157,10 @@ static void ramoops_read_kmsg_hdr(char *buffer, struct timespec64 *time,
 }
 
 static ssize_t ramoops_pstore_read(u64 *id, enum pstore_type_id *type,
-				   int *count, struct timespec *ts,
+				   int *count, struct timespec64 *time,
 				   char **buf, bool *compressed,
 				   struct pstore_info *psi)
 {
-	struct timespec64 ts64 = timespec_to_timespec64(*ts);
-	struct timespec64 *time = &ts64;
 	ssize_t size;
 	ssize_t ecc_notice_size;
 	struct ramoops_context *cxt = psi->data;
@@ -279,7 +277,7 @@ static int notrace ramoops_pstore_write_buf(enum pstore_type_id type,
 }
 
 static int ramoops_pstore_erase(enum pstore_type_id type, u64 id, int count,
-				struct timespec time, struct pstore_info *psi)
+				struct timespec64 time, struct pstore_info *psi)
 {
 	struct ramoops_context *cxt = psi->data;
 	struct persistent_ram_zone *prz;

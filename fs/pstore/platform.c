@@ -475,7 +475,7 @@ void pstore_get_records(int quiet)
 	u64			id;
 	int			count;
 	enum pstore_type_id	type;
-	struct timespec		time;
+	struct timespec64	time;
 	int			failed = 0, rc;
 	bool			compressed;
 	int			unzipped_len = -1;
@@ -507,8 +507,7 @@ void pstore_get_records(int quiet)
 			}
 		}
 		rc = pstore_mkfile(type, psi->name, id, count, buf,
-				  compressed, (size_t)size,
-				  timespec_to_timespec64(time), psi);
+				  compressed, (size_t)size, time, psi);
 		if (unzipped_len < 0) {
 			/* Free buffer other than big oops */
 			kfree(buf);
