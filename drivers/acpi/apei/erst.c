@@ -931,13 +931,13 @@ static int erst_check_table(struct acpi_table_erst *erst_tab)
 static int erst_open_pstore(struct pstore_info *psi);
 static int erst_close_pstore(struct pstore_info *psi);
 static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
-			   struct timespec *time, char **buf,
+			   struct timespec64 *time, char **buf,
 			   bool *compressed, struct pstore_info *psi);
 static int erst_writer(enum pstore_type_id type, enum kmsg_dump_reason reason,
 		       u64 *id, unsigned int part, int count, bool compressed,
 		       size_t size, struct pstore_info *psi);
 static int erst_clearer(enum pstore_type_id type, u64 id, int count,
-			struct timespec time, struct pstore_info *psi);
+			struct timespec64 time, struct pstore_info *psi);
 
 static struct pstore_info erst_info = {
 	.owner		= THIS_MODULE,
@@ -991,7 +991,7 @@ static int erst_close_pstore(struct pstore_info *psi)
 }
 
 static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
-			   struct timespec *ts, char **buf,
+			   struct timespec64 *time, char **buf,
 			   bool *compressed, struct pstore_info *psi)
 {
 	int rc;
@@ -999,8 +999,6 @@ static ssize_t erst_reader(u64 *id, enum pstore_type_id *type, int *count,
 	u64 record_id;
 	struct cper_pstore_record *rcd;
 	size_t rcd_len = sizeof(*rcd) + erst_info.bufsize;
-	struct timespec64 ts64 = timespec_to_timespec64(*ts);
-	struct timespec64 *time = &ts64;
 
 	if (erst_disable)
 		return -ENODEV;
@@ -1115,7 +1113,7 @@ static int erst_writer(enum pstore_type_id type, enum kmsg_dump_reason reason,
 }
 
 static int erst_clearer(enum pstore_type_id type, u64 id, int count,
-			struct timespec time, struct pstore_info *psi)
+			struct timespec64 time, struct pstore_info *psi)
 {
 	return erst_clear(id);
 }
